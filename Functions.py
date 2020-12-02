@@ -40,6 +40,11 @@ class download_data():
 
 
     def get_r(self, type = "shibor"):
+        """
+        得到无风险利率
+        :param type: 采用的是上海银行拆借利率shibor
+        :return: 返回的是年利率，一个DataFrame
+        """
         if type == "libor":
             df = self.pro.libor(curr_type='USD',
                                 start_date=self.sta_date,
@@ -75,6 +80,12 @@ class download_data():
 # close = df["close"]
 
 def get_volatility(df, method = "percentage"):
+    """
+    得到一直股票的历史波动率
+    :param df: 股票的历史数据，最好采用每天的收盘价
+    :param method: 有两种方法，默认的是百分比法
+    :return:
+    """
     # df = close
     length = df.shape[0]
     Xi_list = []
@@ -130,6 +141,13 @@ def Price_by_BT(r, sigma, delta, K, S0, h, T):
     # return c
 
 def get_option_by_s(ST, X, alpha = 0.3):
+    """
+    这个期权与股票S的关系，分为三种情况
+    :param ST: 股票在t=T的时候的价格
+    :param X: Strike Price
+    :param alpha: 定价因子alpha，在(0, 1)之间
+    :return: 返回的是期权的价格
+    """
     if alpha * ST >= ST - X >= 0:
         option = ST - X
     if ST - X > alpha * ST:
@@ -143,6 +161,16 @@ def get_option_by_s(ST, X, alpha = 0.3):
 
 
 def Price_by_BT_2(r, sigma, delta, X, S0, h, alpha = 0.3):
+    """
+    :param r: 无风险利率
+    :param sigma: 历史波动率
+    :param delta: 股息dividend
+    :param X: Strike Price
+    :param S0: 股票在t=0的价格
+    :param h: 一次二叉树的时间
+    :param alpha: 奇异期权的定价因子
+    :return: 返回的是一个dictionary
+    """
 
     u = math.exp((r-delta) * h + sigma*math.sqrt(h))
     d = math.exp((r-delta) * h - sigma*math.sqrt(h))
@@ -165,18 +193,6 @@ def Price_by_BT_2(r, sigma, delta, X, S0, h, alpha = 0.3):
                   "B":B}
     return output_dic
 
-r = 0.035
-delta = 0.02
-sigma = 1.2
-h = 1/365
-X = 120
-S0 = 100
-alpha = 0.3
-
-Price_by_BT_2(r, sigma, delta, X, S0, h, alpha)
-get_option_by_s(100, 100, 0.3)
-
-
 
 class Option:
     def __init__(self, r, sigma, delta, X, S0, h, alpha):
@@ -193,7 +209,20 @@ class Option:
 
 
 
-def Build_Tree_E(n, sigma, delta, X, S0_P, h, alpha):
+def Build_Tree_E(n, r, sigma, delta, X, S0_P, h, alpha):
+    """
+    欧式期权的二叉树
+    :param n: 进行n次回归
+    :param r: 无风险利率
+    :param sigma: 历史波动率
+    :param delta: dividend的
+    :param X: Strike Price
+    :param S0_P: 之前股票的价格
+    :param h: 每次二叉树的间隔
+    :param alpha: 这个是奇异期权的定价中的变量alpha
+    :return: 返回是一个嵌套list
+    """
+
     option_matrix = []
     # item = {"Stock":100, "Option":0}
     option = [{"Stock":100, "Call":0}]
@@ -219,10 +248,23 @@ def Build_Tree_E(n, sigma, delta, X, S0_P, h, alpha):
                 option_list.append(option)
 
         option_matrix.append(option_list)
-    return option_matrix.append(option_list)
+    return option_matrix
 
 
 def Build_Tree_A(n, sigma, delta, X, S0_P, h, alpha):
+    """
+    美式期权的二叉树
+    :param n: 进行n次回归
+    :param r: 无风险利率
+    :param sigma: 历史波动率
+    :param delta: dividend的
+    :param X: Strike Price
+    :param S0_P: 之前股票的价格
+    :param h: 每次二叉树的间隔
+    :param alpha: 这个是奇异期权的定价中的变量alpha
+    :return: 返回是一个嵌套list
+    """
+
     option_matrix = []
     # item = {"Stock":100, "Option":0}
     option = [{"Stock":100, "Call":0}]
@@ -262,11 +304,17 @@ def Build_Tree_A(n, sigma, delta, X, S0_P, h, alpha):
                 option_list.append(option)
 
         option_matrix.append(option_list)
-    return option_matrix.append(option_list)
+    return option_matrix
 
-
-
-Build_Tree_A(n, sigma, delta, X, S0_P, h, alpha)
+r = 0.035
+n = 10
+delta = 0.02
+sigma = 1.2
+h = 1/365
+X = 120
+S0 = 100
+alpha = 0.3
+Build_Tree_A(n, sigma, delta, X, S0, h, alpha)
 
 
 def main():
@@ -292,9 +340,11 @@ def main():
 # V = exp(-r*(T-t)) * max((ST-X), 0)
 # St = S0 * e(mu-sigma-sigma**2/2 + sigma*sqrt(t))
 
-K = X/(1 - alpha)
-d1 = (log(ST/X) + r - delta + 0.5*sigma**2)/(sigma*sqrt(T-t))
-d2 = d1 - sigma*sqrt(T-t)
-d3 = (log(ST/K) + r - delta + 0.5*sigma**2)/(sigma*sqrt(T-t))
-d4 = d3 - sigma*sqrt(T-t)
+
+def BS_Formular(X, alpha, ST, T, t):
+    K = X/(1 - alpha)
+    d1 = (log(ST/X) + r - delta + 0.5*sigma**2)/(sigma*sqrt(T-t))
+    d2 = d1 - sigma*sqrt(T-t)
+    d3 = (log(ST/K) + r - delta + 0.5*sigma**2)/(sigma*sqrt(T-t))
+    d4 = d3 - sigma*sqrt(T-t)
 
