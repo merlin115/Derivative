@@ -348,3 +348,118 @@ def BS_Formular(X, alpha, ST, T, t):
     d3 = (log(ST/K) + r - delta + 0.5*sigma**2)/(sigma*sqrt(T-t))
     d4 = d3 - sigma*sqrt(T-t)
 
+    
+    
+#######greeks
+#European case
+TL=[0.3,1,3]
+plt.figure(figsize=(12,3))
+plt.title("delta")
+S0=St[0]
+for T in TL:
+    plt.plot(list(np.arange(S0*0.1,S0*1.5,S0/500)),[BS_Formular(X, alpha, x, T, 0)[0] for x in np.arange(S0*0.1,S0*1.5,S0/500)])
+plt.legend(TL)
+
+plt.figure(figsize=(12,3))
+plt.title("gamma")
+S0=St[0]
+for T in TL:
+    plt.plot(list(np.arange(S0*0.1,S0*1.5,S0/500)),[BS_Formular(X, alpha, x, T, 0)[1] for x in np.arange(S0*0.1,S0*1.5,S0/500)])
+plt.legend(TL)
+
+plt.figure(figsize=(12,3))
+plt.title("theta")
+S0=St[0]
+for T in TL:
+    plt.plot(list(np.arange(S0*0.1,S0*1.5,S0/500)),[BS_Formular(X, alpha, x, T, 0)[2] for x in np.arange(S0*0.1,S0*1.5,S0/500)])
+plt.legend(TL)
+
+
+#American case. Use binomial tree
+def greeks_America(S):
+    u=Price_by_BT_2(r, sigma, delta, X, S, h, alpha = 0.3)['Up_factor']
+    d=Price_by_BT_2(r, sigma, delta, X, S, h, alpha = 0.3)['Down_factor']
+    V=Build_Tree_A(3, sigma, delta, X, S0, h, alpha)
+    V0=V[0][0]['Call']
+    V11,V10=V[1][0]['Call'],V[1][1]['Call']
+    V22,V21,V20=V[2][0]['Call'],V[2][1]['Call'],V[2][2]['Call']
+    Δ=(V11-V10)/(S*(u-d))
+    #有限差分法
+    #gamma=((V22-V21)/(S*u*u-S)-(V21-V20)/(S-S*d*d))/(0.5*S*(u**2-d**2))
+    #theta=(V21-V0)/(2)
+    #binomial tree
+    gamma=((V22-V21)/(S*u*u-d*S)-(V21-V20)/(S-S*d*d))/(0.5*S*(u**2-d**2))
+    theta=(V21-V0)/2
+    return [Δ,gamma,theta]
+
+#American case
+TL=[0.3,1,3]
+plt.figure(figsize=(12,3))
+plt.title("delta")
+S0=St[0]
+for T in TL:
+    plt.plot(list(np.arange(S0*0.5,S0*1.5,S0/500)),[greeks_America(x)[0] for x in np.arange(S0*0.5,S0*1.5,S0/500)])
+plt.legend(TL)
+
+plt.figure(figsize=(12,3))
+plt.title("gamma")
+S0=St[0]
+for T in TL:
+    plt.plot(list(np.arange(S0*0.5,S0*1.5,S0/500)),[greeks_America(x)[1] for x in np.arange(S0*0.5,S0*1.5,S0/500)])
+plt.legend(TL)
+
+plt.figure(figsize=(12,3))
+plt.title("theta")
+S0=St[0]
+for T in TL:
+    plt.plot(list(np.arange(S0*0.5,S0*1.5,S0/500)),[greeks_America(x)[2] for x in np.arange(S0*0.5,S0*1.5,S0/500)])
+plt.legend(TL)
+
+#delta hedging 收益
+def deltaHedging(St,option,T,opType):
+    '''
+    St: time series格式，股价
+    option: time series格式，期权价格
+    S0: t=0的时候股价
+    n: 到expiration共多少天
+    opType: str,"e"为欧式,"a"为美式
+    '''
+    n=T*192
+    df=[]
+    for i in range(n):
+        t=i/192
+        S=St[i]
+        V=option[i]
+        if opType=="e":
+            delta,gamma,theta=BS_Formular(X, alpha, S, T, t)
+        if opType=="a":
+            delta,gamma,theta=greeks_America(S)
+        if i>0:
+            gain_on_shares=100*delta*(S-St[i-1])
+            gain_on_written_option=100*(option[i-1]-V)
+            interest=-net_inv*(np.exp(r/365)-1) #使用的是昨天的net_inv
+            overnight_profit=gain_on_shares+gain_on_written_option+interest
+        else:
+            gain_on_shares=0
+            gain_on_written_option=0
+            interest=0
+            overnight_profit=0
+        net_inv=100*(delta*S-V)
+        df.append([S,V,delta,gamma,theta,net_inv,gain_on_shares,gain_on_written_option,interest,overnight_profit])
+    df=pd.DataFrame(df,index=St.index[:n],columns=['S','V','delta','gamma','theta','net_inv','gain_on_shares'
+                                               ,'gain_on_written_option','interest','overnight_profit'])
+    df['net_inv']=df['net_inv'].shift(1)
+    print("total profit",np.sum(df["overnight_profit"]))
+    return df.apply(lambda x:round(x,4))
+T=1
+df=deltaHedging(St,option,T,"e")
+df
+
+
+
+
+
+
+
+
+
